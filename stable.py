@@ -11,35 +11,43 @@ args = vars(ap.parse_args())
 print args
 
 cap = cv2.VideoCapture("dataset/" + args["video"])
-prevFrame = None
-
+prevFrame = None 
+prevFrameKeypoints = None
+prevFrameDescriptors = None
+i = 0
 while (cap.isOpened()):
-	ret, frame = cap.read()
+	ret, currFrame = cap.read()
+	currFrame = cv2.resize(currFrame, (0,0), fx=0.33, fy=0.33); #resize frame to fit on one display
 
+	# sift = cv2.xfeatures2d.SIFT_create(nfeatures=10)
+	# currFrameKeypoints, currFrameDescriptors = sift.detectAndCompute(currFrame, None)
 
 	if prevFrame is not None:
-		frame = cv2.resize(frame, (0,0), fx=0.3, fy=0.3); #resize frame to fit on one display
-		uneditedFrame = np.copy(frame) #keep unedited reference for side by side comparison
+		if i == 0:
+			i+=1
+			continue
+		# matcher = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+		# matches = matcher.match(prevFrameDescriptors, currFrameDescriptors)		
+		# matches = np.asarray(matches)
+	
+		# pfkp = np.float32([prevFrameKeypoints[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+		# cfkp = np.float32([currFrameKeypoints[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
 		
-		# Harris corner detection on frame for keypoints
-		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-		dst = cv2.cornerHarris(gray,2,3,0.04)
-		frame[dst>0.01*dst.max()]=[0,0,255]
+		# res = cv2.drawMatches(currFrame, currFrameKeypoints, prevFrame, prevFrameKeypoints, matches, None)
+		# cv2.imshow('sift features matches', res)
 
-		# TODO: Combine these into one canvas
-		# rows = np.size(frame, 0)
-		# cols = np.size(frame, 1)
-		# canvas = np.zeros((rows, cols*2+10, 3), dtype=int)
-		# canvas[:, range(0, cols)] = uneditedFrame[: , range(0, cols)]
-		# canvas[:, range(cols+10, cols*2+10)] = frame[: , range(0, cols)]
-		# cv2.imshow('Unstabilized on left, Stabilized on right', canvas)
+		res = cv2.estimateRigidTransform(currFrame, prevFrame, False)
+		dst = cv2.warpAffine(currFrame, res, (np.size(currFrame,1), np.size(currFrame,0)));
+		
+		# h, status = cv2.findHomography(cfkp, pfkp, cv2.RANSAC)
+		# res = cv2.warpPerspective(prevFrame, status, (np.size(currFrame,0), np.size(currFrame,1)))
+		cv2.imshow('Stabilized', dst)
 
-		cv2.imshow('frame', frame)
-		cv2.imshow('uneditedFrame', uneditedFrame)
-
-	prevFrame = frame
+	prevFrame = currFrame
+	# prevFrameKeypoints = currFrameKeypoints
+	# prevFrameDescriptors = currFrameDescriptors
+	
 	if cv2.waitKey(1) & 0xFF == ord('q'):
 		break
-
 cap.release()
 cv2.destroyAllWindows()
